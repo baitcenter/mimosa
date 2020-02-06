@@ -23,16 +23,16 @@ serde = "1.0.104"
 serde_derive = "1.0.104"
 serde_json = "1.0.46"
 dotenv = "0.15.0"
-futures = "0.3.2"
+futures = "0.3.3"
 failure = "0.1.6"
 derive_more = "0.99.2"
 jsonwebtoken = "7.0.1"
 bcrypt = "0.6.1"
-time = "0.2.6"
+# time = "0.2.6"
 
 [dependencies.diesel]
 version = "1.4.3"
-features = ["postgres", "r2d2", "chrono", "uuid", "network-address", "numeric"]
+features = ["postgres", "r2d2", "chrono", "uuid", "network-address"]
 
 [dependencies.chrono]
 version = "0.4.10"

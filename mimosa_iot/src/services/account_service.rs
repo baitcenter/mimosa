@@ -74,7 +74,6 @@ pub fn login(login: LoginDTO, pool: &web::Data<Pool>) -> Result<RespToken, Servi
         None => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, constants::MESSAGE_LOGIN_FAILED.to_string()))
     }
 }
-
 pub fn logout(authen_header: &HeaderValue, pool: &web::Data<Pool>) -> Result<(), ServiceError>{
     if let Ok(authen_str) = authen_header.to_str() {
         if authen_str.starts_with("bearer") {
@@ -92,3 +91,4 @@ pub fn logout(authen_header: &HeaderValue, pool: &web::Data<Pool>) -> Result<(),
 
     Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, constants::MESSAGE_PROCESS_TOKEN_ERROR.to_string()))
 }
+//TODO user-info->hash;home-timeline->redis zset;status->hash;followers->zset;following->zset;

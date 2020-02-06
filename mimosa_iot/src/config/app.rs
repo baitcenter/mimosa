@@ -8,7 +8,6 @@ pub fn config_services(
     info!("Configurating routes...");
     cfg.service(
         web::scope("/api")
-            // .service(ping_controller::ping)
             .service(
                 web::scope("/auth")
                     .service(account_controller::signup)
