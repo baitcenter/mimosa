@@ -15,7 +15,7 @@ use actix_web::{post,web, HttpRequest, HttpResponse, Result};
 // POST api/auth/signup
 #[post("/signup")]
 pub async fn signup(dto: web::Json<account_service::ReqRegist>, pool: web::Data<Pool>,redis: web::Data<Addr<RedisActor>>,) -> Result<HttpResponse>{
-    match account_service::signup(dto.0, &pool) {
+    match account_service::signup(dto.0, &pool,&redis).await {
         Ok(message) => Ok(HttpResponse::Ok().json(Response::new(&message, constants::EMPTY))),
         Err(err) => Ok(err.response()),
     }
@@ -23,8 +23,8 @@ pub async fn signup(dto: web::Json<account_service::ReqRegist>, pool: web::Data<
 
 // POST api/auth/login
 #[post("/login")]
-pub async fn login(login_dto: web::Json<LoginDTO>, pool: web::Data<Pool>) -> Result<HttpResponse>{
-    match account_service::login(login_dto.0, &pool) {
+pub async fn login(login_dto: web::Json<LoginDTO>, pool: web::Data<Pool>,redis: web::Data<Addr<RedisActor>>,) -> Result<HttpResponse>{
+    match account_service::login(login_dto.0, &pool,&redis) {
         Ok(token_res) => Ok(HttpResponse::Ok().json(Response::new(constants::MESSAGE_LOGIN_SUCCESS, token_res))),
         Err(err) => Ok(err.response()),
     }

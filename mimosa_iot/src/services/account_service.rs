@@ -6,12 +6,14 @@ use crate::{
     error::ServiceError,
     entity::user:: {
         auth::{UserAuth, LoginDTO,UserDTO},
+        cache::CacheUser,
         base::{UserBase,UserBaseDto},
         token::UserToken,
     },
     utils::token_utils,
 };
-
+use actix::prelude::*;
+use actix_redis::{Command, RedisActor};
 use actix_web::{
     // client::Client,
     http::{
@@ -38,7 +40,7 @@ pub struct RespToken {
 }
 
 // pub fn check_phone_exist(phone:String,)
-pub fn signup(dto: ReqRegist,pool: &web::Data<Pool>) -> Result<String, ServiceError>{
+pub async fn signup(dto: ReqRegist,pool: &web::Data<Pool>,redis:&web::Data<Addr<RedisActor>>,) -> Result<String, ServiceError>{
     let conn = &pool.get().unwrap();
     if UserAuth::find_user_by_identifier(&dto.identifier,conn).is_err(){
         // 创建用户信息表
@@ -46,24 +48,50 @@ pub fn signup(dto: ReqRegist,pool: &web::Data<Pool>) -> Result<String, ServiceEr
 
         // };
         let hashed_pwd = hash(&dto.certificate, DEFAULT_COST).unwrap();
-        let dto = UserDTO{
-            uid:1,
-            identity_type:dto.identity_type,
-            identifier:&dto.identifier,
-            certificate:&hashed_pwd,
+        let base = UserBaseDto{
+            register_source:1,
+            user_role:2,
+            user_name:&dto.identifier,
+            mobile:&dto.identifier,
+            mobile_bind_time:Some(chrono::Utc::now().naive_utc()),
+
         };
-        match UserAuth::insert(dto, conn) {
-                Ok(message) => {
-                    Ok(message)
-                },
-                Err(message) => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, message))
-            }
+        match UserBase::insert(base,conn){
+            Ok(result)=>{
+                let dto = UserDTO{
+                    uid:result.id,
+                    identity_type:dto.identity_type,
+                    identifier:&dto.identifier,
+                    certificate:&hashed_pwd,
+                };
+                match UserAuth::insert(dto, conn) {
+                        Ok(message) => {
+                            // let cache=CacheUser{
+                            //     id:result.id,
+                            //     name:result.user_name,
+                            //     nick_name:result.nick_name,
+                            //     followers:0,
+                            //     following:0,
+                            //     posts:0,
+                            // };
+                            // let json = serde_json::to_string(&cache).unwrap();
+                            
+                            // let cached = redis.send(Command(resp_array!("HSET","users:$result.id",json))).await;
+
+                            Ok(message)
+                        },
+                        Err(message) => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, message))
+                    }
+            },
+            Err(message) => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, message))
+        }
+        
     }else{
         Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, format!("User '{}' is already registered", &dto.identifier)))
     }
 }
 
-pub fn login(login: LoginDTO, pool: &web::Data<Pool>) -> Result<RespToken, ServiceError>{
+pub fn login(login: LoginDTO, pool: &web::Data<Pool>,redis:&web::Data<Addr<RedisActor>>,) -> Result<RespToken, ServiceError>{
     match UserAuth::login(login, &pool.get().unwrap()) {
         Some(logged_user) => {
             match serde_json::from_value(json!({ "token": UserToken::generate_token(logged_user), "token_type": "bearer" })) {
@@ -74,6 +102,9 @@ pub fn login(login: LoginDTO, pool: &web::Data<Pool>) -> Result<RespToken, Servi
         None => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, constants::MESSAGE_LOGIN_FAILED.to_string()))
     }
 }
+
+
+
 pub fn logout(authen_header: &HeaderValue, pool: &web::Data<Pool>) -> Result<(), ServiceError>{
     if let Ok(authen_str) = authen_header.to_str() {
         if authen_str.starts_with("bearer") {
