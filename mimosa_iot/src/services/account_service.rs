@@ -66,18 +66,17 @@ pub async fn signup(dto: ReqRegist,pool: &web::Data<Pool>,redis:&web::Data<Addr<
                 };
                 match UserAuth::insert(dto, conn) {
                         Ok(message) => {
-                            // let cache=CacheUser{
-                            //     id:result.id,
-                            //     name:result.user_name,
-                            //     nick_name:result.nick_name,
-                            //     followers:0,
-                            //     following:0,
-                            //     posts:0,
-                            // };
-                            // let json = serde_json::to_string(&cache).unwrap();
+                            let cache=CacheUser{
+                                id:result.id,
+                                name:result.user_name,
+                                nick_name:result.nick_name,
+                                followers:0,
+                                following:0,
+                                posts:0,
+                            };
+                            let json = serde_json::to_string(&cache).unwrap();
                             
-                            // let cached = redis.send(Command(resp_array!("HSET","users:$result.id",json))).await;
-
+                            let cached = redis.send(Command(resp_array!("HSET","users:$result.id",json))).await;
                             Ok(message)
                         },
                         Err(message) => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, message))

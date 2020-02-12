@@ -9,7 +9,7 @@ use crate::{
 };
 
 use actix::prelude::*;
-use actix_redis::{Command, RedisActor};
+use actix_redis::RedisActor;
 use actix_web::{post,web, HttpRequest, HttpResponse, Result};
 
 // POST api/auth/signup
