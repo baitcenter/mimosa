@@ -1,3 +1,5 @@
+use futures::future::join_all;
+use actix_redis::Error;
 use bcrypt::{hash, DEFAULT_COST};
 
 use crate::{
@@ -13,7 +15,7 @@ use crate::{
     utils::token_utils,
 };
 use actix::prelude::*;
-use actix_redis::{Command, RedisActor};
+use actix_redis::{Command, Error as AWError, RedisActor, RespValue};
 use actix_web::{
     // client::Client,
     http::{
@@ -75,9 +77,30 @@ pub async fn signup(dto: ReqRegist,pool: &web::Data<Pool>,redis:&web::Data<Addr<
                                 posts:0,
                             };
                             let json = serde_json::to_string(&cache).unwrap();
+                            let cache =redis.send(Command(resp_array!["HSET","users:$result.id",json]));
+
+                            let res: Vec<Result<RespValue, AWError>> =
+                                join_all(vec![cache].into_iter())
+                                    .await
+                                    .into_iter()
+                                    .map(|item| {
+                                        item.map_err(AWError::from)
+                                            .and_then(|res| res.map_err(AWError::from))
+                                    })
+                                    .collect();
+
+                            // successful operations return "OK", so confirm that all returned as so
+                            if !res.iter().all(|res| match res {
+                                Ok(RespValue::SimpleString(x)) if x == "OK" => true,
+                                _ => false,
+                            }) {
+                                Ok(message)
+                            } else {
+                                Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, constants::MESSAGE_INTERNAL_SERVER_ERROR.to_string()))
+                             }
+                           
                             
-                            let cached = redis.send(Command(resp_array!("HSET","users:$result.id",json))).await;
-                            Ok(message)
+                            
                         },
                         Err(message) => Err(ServiceError::new(StatusCode::INTERNAL_SERVER_ERROR, message))
                     }
